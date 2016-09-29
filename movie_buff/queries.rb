@@ -88,17 +88,63 @@ end
 
 def golden_age
 	# Find the decade with the highest average movie score.
+  golden_age = Movie.find_by_sql(<<-SQL)
+    with dec as (
+    SELECT
+      CASE
+        WHEN yr between 1900 AND 1909 then 1900
+        WHEN yr between 1910 AND 1919 then 1910
+        WHEN yr between 1920 AND 1929 then 1920
+        WHEN yr between 1930 AND 1939 then 1930
+        WHEN yr between 1940 AND 1949 then 1940
+        WHEN yr between 1950 AND 1959 then 1950
+        WHEN yr between 1960 AND 1969 then 1960
+        WHEN yr between 1970 AND 1979 then 1970
+        WHEN yr between 1980 AND 1989 then 1980
+        WHEN yr between 1990 AND 1999 then 1990
+        WHEN yr between 2000 AND 2009 then 2000
+      END as decade, score
+    FROM movies)
 
+    SELECT decade, avg(score)
+    FROM dec
+    GROUP BY 1
+    ORDER BY 2 desc
+    LIMIT 1
+  SQL
+  golden_age[0].decade
 end
 
 def cast_list(title)
   # List all the actors for a particular movie, given the title.  Sort the results by starring order (ord).
-
+  Actor.find_by_sql(<<-SQL)
+  SELECT a.*
+  FROM actors a
+  JOIN castings c ON a.id = c.actor_id
+  JOIN movies m ON m.id = c.movie_id
+  WHERE m.title = '#{title}'
+  ORDER BY c.ord
+  SQL
 end
 
 def costars(name)
   # List the names of the actors that the named actor has ever appeared with.
-
+  actors = Actor.find_by_sql(<<-SQL)
+    with star_movies as (
+      SELECT distinct m.id
+      FROM actors a
+      JOIN castings c ON a.id = c.actor_id
+      JOIN movies m ON m.id = c.movie_id
+      WHERE a.name = '#{name}'
+    )
+    SELECT a.name
+    FROM actors a
+    JOIN castings c ON a.id = c.actor_id
+    JOIN movies m ON m.id = c.movie_id
+    JOIN star_movies sm on m.id = sm.id
+    WHERE a.name != '#{name}'
+  SQL
+  actors.map!{|t| t.name}.uniq
 end
 
 def most_supportive
